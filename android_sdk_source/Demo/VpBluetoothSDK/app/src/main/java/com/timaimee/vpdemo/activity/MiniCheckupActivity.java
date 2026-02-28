@@ -13,6 +13,7 @@ import com.inuker.bluetooth.library.Code;
 import com.timaimee.vpdemo.R;
 import com.veepoo.protocol.VPOperateManager;
 import com.veepoo.protocol.listener.IMiniCheckupOptListener;
+import com.veepoo.protocol.model.datas.MiniCheckupDetailData;
 import com.veepoo.protocol.model.datas.MiniCheckupResultData;
 import com.veepoo.protocol.model.enums.EMiniCheckupTestErrorCode;
 
@@ -92,5 +93,15 @@ public class MiniCheckupActivity extends Activity implements IMiniCheckupOptList
     private void appendMsg(String msg) {
         sb.append(msg).append("\n");
         tvMiniCheckupInfo.setText(sb.toString());
+    }
+
+    @Override
+    public void onMiniCheckupDetailTestSuccess(@NonNull MiniCheckupDetailData miniCheckupDetailData) {
+
+    }
+
+    @Override
+    public void onPointerCaptureChanged(boolean hasCapture) {
+        super.onPointerCaptureChanged(hasCapture);
     }
 }

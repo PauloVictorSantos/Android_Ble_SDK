@@ -32,15 +32,12 @@
     <!-- Android 12在不申请定位权限时，必须加上android:usesPermissionFlags="neverForLocation"，否则搜不到设备 -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation"
         tools:targetApi="s" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADVERTISE"
-        android:usesPermissionFlags="neverForLocation"
         tools:targetApi="s" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_CONNECT"
-        android:usesPermissionFlags="neverForLocation"
         tools:targetApi="s" />
 
     <uses-feature
@@ -158,7 +155,7 @@
             android:name="com.inuker.bluetooth.library.BluetoothService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location|location|location" />
 
         <service android:name=".oad.service.DfuService" android:exported="false"/>
         <!-- 高德地图定位 -->
@@ -168,7 +165,7 @@
             android:name=".MyService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location|location|location" />
     </application>
 
 

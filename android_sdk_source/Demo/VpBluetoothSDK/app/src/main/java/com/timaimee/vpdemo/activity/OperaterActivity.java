@@ -7,10 +7,12 @@ import static com.veepoo.protocol.model.enums.EFunctionStatus.SUPPORT_CLOSE;
 import static com.veepoo.protocol.model.enums.EFunctionStatus.SUPPORT_OPEN;
 import static com.veepoo.protocol.model.enums.EFunctionStatus.UNSUPPORT;
 
+import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
 
 import com.inuker.bluetooth.library.connect.response.BleNotifyResponse;
 import com.inuker.bluetooth.library.jieli.dial.JLWatchFaceManager;
@@ -1451,6 +1454,16 @@ public class OperaterActivity extends Activity implements AdapterView.OnItemClic
             VPOperateManager.getInstance().settingDeviceControlPhone(new IDeviceControlPhoneModelState() {
 
                 @Override
+                public void inMultiEcgModel() {
+
+                }
+
+                @Override
+                public void outMultiEcgModel() {
+
+                }
+
+                @Override
                 public void inPttModel() {
                     String message = "手表提示:手表进入ptt模式\n";
                     Logger.t(TAG).i(message);
@@ -2857,6 +2870,26 @@ public class OperaterActivity extends Activity implements AdapterView.OnItemClic
             //BluetoothGatt gatt = VPOperateManager.getInstance().getConnectGatt(mac);//传入mac地址获取、推荐使用此方法
             BluetoothGatt gatt = VPOperateManager.getInstance().getCurrentConnectGatt();//获取当前练级的
             if (gatt != null) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
                 Logger.t(TAG).i("Gatt-Close:" + gatt.getDevice().getName() + " | " + gatt.getDevice().getAddress());
                 gatt.disconnect();
                 gatt.close();
@@ -3605,6 +3638,16 @@ public class OperaterActivity extends Activity implements AdapterView.OnItemClic
      */
     public void listenDeviceCallbackData() {
         VPOperateManager.getInstance().settingDeviceControlPhone(new IDeviceControlPhoneModelState() {
+
+            @Override
+            public void inMultiEcgModel() {
+
+            }
+
+            @Override
+            public void outMultiEcgModel() {
+
+            }
 
             @Override
             public void inPttModel() {

@@ -5,6 +5,7 @@
 
     <RelativeLayout
         android:id="@+id/main_head"
+        android:visibility="visible"
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:background="@android:color/black">
@@ -27,7 +28,7 @@
             android:layout_marginRight="20dp"
             android:onClick="onClick"
             android:src="@drawable/refresh"
-            android:visibility="gone" />
+            android:visibility="visible" />
     </RelativeLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -43,7 +44,9 @@
             android:layout_height="match_parent"
             android:layout_marginLeft="20dp"
             android:layout_marginRight="20dp"
-            android:scrollbars="none" />
+            android:scrollbars="none"
+            android:layout_marginTop="40dp"
+            />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 

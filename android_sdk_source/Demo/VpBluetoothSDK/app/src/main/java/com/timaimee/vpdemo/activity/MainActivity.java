@@ -63,6 +63,19 @@ import com.veepoo.protocol.listener.base.IABluetoothStateListener;
 import com.veepoo.protocol.listener.base.IBleWriteResponse;
 import com.veepoo.protocol.listener.base.IConnectResponse;
 import com.veepoo.protocol.listener.base.INotifyResponse;
+import com.veepoo.protocol.listener.data.ICustomSettingDataListener;
+import com.veepoo.protocol.listener.data.IDeviceFuctionDataListener;
+import com.veepoo.protocol.listener.data.IPwdDataListener;
+import com.veepoo.protocol.listener.data.ISocialMsgDataListener;
+import com.veepoo.protocol.model.datas.DeviceFunctionPackage1;
+import com.veepoo.protocol.model.datas.DeviceFunctionPackage2;
+import com.veepoo.protocol.model.datas.DeviceFunctionPackage3;
+import com.veepoo.protocol.model.datas.DeviceFunctionPackage4;
+import com.veepoo.protocol.model.datas.DeviceFunctionPackage5;
+import com.veepoo.protocol.model.datas.FunctionDeviceSupportData;
+import com.veepoo.protocol.model.datas.FunctionSocailMsgData;
+import com.veepoo.protocol.model.datas.PwdData;
+import com.veepoo.protocol.model.settings.CustomSettingData;
 import com.veepoo.protocol.util.VPLogger;
 
 import java.io.File;
@@ -175,176 +188,48 @@ public class MainActivity extends Activity implements SwipeRefreshLayout.OnRefre
     }
 
 
-    private boolean isGetPermission() {
-        boolean isScanPermissionGranted;
-        if (Build.VERSION.SDK_INT <= 22) {
-            isScanPermissionGranted = true; //android 6.0 以下直接通过
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            isScanPermissionGranted = ContextCompat.checkSelfPermission(mContext, Manifest.permission.BLUETOOTH_SCAN)
-                    == PERMISSION_GRANTED; //android 12 需要BLUETOOTH_SCAN新权限
-        } else {
-            isScanPermissionGranted = ContextCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION)
-                    == PERMISSION_GRANTED;
-        }
-        return isScanPermissionGranted;
-    }
-
     private void checkPermission() {
-        Logger.t(TAG).i("Build.VERSION.SDK_INT =" + Build.VERSION.SDK_INT);
-        if (Build.VERSION.SDK_INT <= 22) {
-            initBLE();
-            return;
+        List<String> permissionList = new ArrayList<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            permissionList.add(Manifest.permission.BLUETOOTH_SCAN);
+            permissionList.add(Manifest.permission.BLUETOOTH_CONNECT);
         }
+        permissionList.add(Manifest.permission.ACCESS_FINE_LOCATION);
 
-        if (Build.VERSION.SDK_INT>=31) {
-            initDialogBluetoothScan();
-            checkBLEScanPermissionAboveAndroid11();
-        } else {
-            int permissionCheck = ContextCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION);
-            if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-                Logger.t(TAG).i("checkPermission,PERMISSION_GRANTED");
-                initBLE();
-            } else if (permissionCheck == PackageManager.PERMISSION_DENIED) {
-                showMsg("Android6.0-Android11 蓝牙扫描需要定位权限");
-                requestPermission();
-                Logger.t(TAG).i("checkPermission,PERMISSION_DENIED");
-            }
-        }
+        Dexter.withContext(this)
+                .withPermissions(permissionList)
+                .withListener(new MultiplePermissionsListener() {
+                    @Override
+                    public void onPermissionsChecked(MultiplePermissionsReport multiplePermissionsReport) {
+                        if (multiplePermissionsReport.areAllPermissionsGranted()) {
+                            initBLE();
+                        }
 
+                        if (multiplePermissionsReport.isAnyPermissionPermanentlyDenied()) {
+                            showMsg("蓝牙或定位权限被拒绝，请手动授权");
+                        }
+                    }
+
+                    @Override
+                    public void onPermissionRationaleShouldBeShown(List<PermissionRequest> list, PermissionToken permissionToken) {
+                        permissionToken.continuePermissionRequest();
+                    }
+                }).check();
     }
 
     public void showMsg(String msg) {
         runOnUiThread(() -> Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show());
     }
-    private void commandSettingUI() {
-        try {
-            Logger.t("^^^^^").e("=========================================>>>>> commandSettingUI");
-            Intent intent = new Intent();
-            intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-            Uri uri = Uri.fromParts("package", getPackageName(), null);
-            intent.setData(uri);
-            startActivityForResult(intent, 1115);
-        } catch (Exception e) {
-            e.printStackTrace();
+
+    private void initBLE() {
+        mBManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        if (null != mBManager) {
+            mBAdapter = mBManager.getAdapter();
         }
-    }
-
-    private Dialog mDialogBluetoothScan;
-    private void initDialogBluetoothScan() {
-        mDialogBluetoothScan = new Dialog(this, R.style.loading_dialog);
-        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_pop_cancelok, null);
-
-        mDialogBluetoothScan.setContentView(dialogView);
-        mDialogBluetoothScan.setCancelable(false);
-        mDialogBluetoothScan.setCanceledOnTouchOutside(false);
-
-        TextView okTv = (TextView) dialogView.findViewById(R.id.dialog_ok);
-        TextView cancelTv = (TextView) dialogView.findViewById(R.id.dialog_cancel);
-        TextView contentTv = (TextView) dialogView.findViewById(R.id.dialog_content);
-
-        contentTv.setText("扫描设备需允许应用访问周围蓝牙设备并保持蓝牙开关开启");
-        okTv.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                commandSettingUI();
-                mDialogBluetoothScan.dismiss();
-            }
-        });
-        cancelTv.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mDialogBluetoothScan.dismiss();
-            }
-        });
-    }
-    private boolean checkBLEScanPermissionAboveAndroid11() {
-        Logger.t(TAG).e("**在Android12及以上版本检查BLE搜索权限");
-        if (Build.VERSION.SDK_INT < 31) {
-            Logger.t(TAG).e("当前版本低于Android12");
-            return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            mBScanner = mBAdapter.getBluetoothLeScanner();
         }
-        boolean hasScanPermission = isGetPermission();
-        Logger.t(TAG).e("**在Android12及以上版本检查BLE搜索权限 hasScanPermission = " + hasScanPermission);
-        if (!hasScanPermission) {
-            boolean isNeedExplanation = ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.BLUETOOTH_SCAN);
-            Logger.t(TAG).e("**在Android12及以上版本检查BLE搜索权限 hasScanPermission = false , isNeedExplanation = " + isNeedExplanation);
-            if (isNeedExplanation) {
-                showMsg("您已多次拒绝了，请手动打开android12 蓝牙搜索权限");
-                mDialogBluetoothScan.show();
-            } else {
-                List<String> permissionList = new ArrayList<>();
-                permissionList.add(Manifest.permission.BLUETOOTH_SCAN);
-                permissionList.add(Manifest.permission.BLUETOOTH_ADVERTISE);
-                permissionList.add(Manifest.permission.BLUETOOTH_CONNECT);
-                Dexter.withContext(this)
-                        .withPermissions(permissionList)
-                        .withListener(new MultiplePermissionsListener() {
-                            @Override
-                            public void onPermissionsChecked(MultiplePermissionsReport multiplePermissionsReport) {
-                                for (PermissionGrantedResponse grantedResponse : multiplePermissionsReport.getGrantedPermissionResponses()) {
-                                    Logger.t(TAG).e("onPermissionsChecked:Granted::::" + grantedResponse.getRequestedPermission().toString());
-                                }
-                                for (PermissionDeniedResponse deniedResponse : multiplePermissionsReport.getDeniedPermissionResponses()) {
-                                    Logger.t(TAG).e("onPermissionsChecked:Denied::::" + deniedResponse.getRequestedPermission().toString());
-                                }
-                                if (multiplePermissionsReport.getGrantedPermissionResponses().size() == 3) {
-                                    showMsg("蓝牙相关权限已授予了");
-                                } else {
-                                    showMsg("权限被拒绝了请手动授权");
-                                }
-                            }
-
-
-                            @Override
-                            public void onPermissionRationaleShouldBeShown(List<PermissionRequest> list, PermissionToken permissionToken) {
-                                for (PermissionRequest permissionRequest : list) {
-                                    Logger.t(TAG).e("onPermissionRationaleShouldBeShown::::" + permissionRequest.toString());
-                                }
-                            }
-                        }).check();
-            }
-            return false;
-        } else {
-        }
-        return false;
-    }
-
-    private void requestPermission() {
-        if (ContextCompat.checkSelfPermission(mContext,
-                Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
-                    Manifest.permission.ACCESS_COARSE_LOCATION)) {
-                Logger.t(TAG).i("requestPermission,shouldShowRequestPermissionRationale");
-
-            } else {
-                Logger.t(TAG).i("requestPermission,shouldShowRequestPermissionRationale else");
-                ActivityCompat.requestPermissions(MainActivity.this,
-                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
-                                /*Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT,*/Manifest.permission.BLUETOOTH_PRIVILEGED},
-                        MY_PERMISSIONS_REQUEST_BLUETOOTH);
-            }
-        } else {
-            Logger.t(TAG).i("requestPermission,shouldShowRequestPermissionRationale hehe");
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           String permissions[], int[] grantResults) {
-        switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST_BLUETOOTH: {
-                Logger.t(TAG).i("onRequestPermissionsResult,MY_PERMISSIONS_REQUEST_BLUETOOTH ");
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    initBLE();
-                } else {
-                }
-                return;
-            }
-        }
+        checkBLE();
     }
 
     private void initLog() {
@@ -355,7 +240,6 @@ public class MainActivity extends Activity implements SwipeRefreshLayout.OnRefre
                 .logLevel(LogLevel.FULL)
                 .logAdapter(new CustomLogAdapter());
     }
-
     private boolean scanDevice() {
         if (!mListAddress.isEmpty()) {
             mListAddress.clear();
@@ -372,69 +256,6 @@ public class MainActivity extends Activity implements SwipeRefreshLayout.OnRefre
 //        startScan();
         VPOperateManager.getInstance().startScanDevice(mSearchResponse);
         return false;
-    }
-
-
-    private void startScan() {
-        //后台扫描跟前台扫描的方式不一样
-        ScanSettings settings = new ScanSettings.Builder()
-                .setLegacy(false)
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .setReportDelay(1000)
-                .setUseHardwareBatchingIfSupported(false)//默认为true，表示如果他们支持硬件分流批处理的话，使用硬件分流批处理;false表示兼容机制
-                .build();
-        List<ScanFilter> filters = new ArrayList<>();
-        ScanFilter scanFilter;
-
-        ScanFilter.Builder scanFilterBuilder = new ScanFilter.Builder();
-        scanFilter = scanFilterBuilder.build();
-        filters.add(scanFilter);
-        final ScanCallback mScanCallback = new ScanCallback() {
-            @Override
-            public void onScanResult(int callbackType, ScanResult result) {
-                super.onScanResult(callbackType, result);
-
-            }
-
-            @Override
-            public void onBatchScanResults(final List<ScanResult> results) {
-                super.onBatchScanResults(results);
-                Logger.t(TAG).i("onBatchScanResults:" + results.size());
-                //Logger.t(TAG).i("address," + bluetoothDevice.getAddress());
-                //05,09,42,31,35,50|03,19,41,03|02,01,06|03,03,FF,FF|09,FF,F8,F8,CF,86,07,90,82,DD,
-                //flag 03后面是服务
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        for (int i = 0; i < results.size(); i++) {
-                            ScanResult scanResult = results.get(i);
-
-                            BluetoothDevice device = scanResult.getDevice();
-                            if (!mListAddress.contains(device.getAddress())) {
-                                mListData.add(new SearchResult(device, scanResult.getRssi(), scanResult.getScanRecord().getBytes()));
-                                mListAddress.add(device.getAddress());
-                            }
-                        }
-                        Collections.sort(mListData, new DeviceCompare());
-                        bleConnectAdatpter.notifyDataSetChanged();
-                    }
-                });
-            }
-
-            @Override
-            public void onScanFailed(int errorCode) {
-                super.onScanFailed(errorCode);
-                Log.i(TAG, "onScanFailed:" + errorCode);
-            }
-        };
-        mScanner.startScan(filters, settings, mScanCallback);
-        mHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mScanner.stopScan(mScanCallback);
-                refreshStop();
-            }
-        }, 6 * 1000);
     }
 
 
@@ -467,44 +288,70 @@ public class MainActivity extends Activity implements SwipeRefreshLayout.OnRefre
                     intent.putExtra("deviceaddress", mac);
                     startActivity(intent);
 
-//                    VPOperateManager.getInstance().confirmDevicePwd(new IBleWriteResponse() {
-//                        @Override
-//                        public void onResponse(int code) {
-//
-//                        }
-//                    }, new IPwdDataListener() {
-//                        @Override
-//                        public void onPwdDataChange(PwdData pwdData) {
-//                            String message = "PwdData:\n" + pwdData.toString();
-//                            Logger.t(TAG).i(message);
-//                            int deviceNumber = pwdData.getDeviceNumber();
-//                            String deviceVersion = pwdData.getDeviceVersion();
-//                            String deviceTestVersion = pwdData.getDeviceTestVersion();
-//                            Logger.t(TAG).e("设备号：" + deviceNumber + ",版本号：" + deviceVersion + ",\n测试版本号：" + deviceTestVersion);
-//                        }
-//                    }, new IDeviceFuctionDataListener() {
-//                        @Override
-//                        public void onFunctionSupportDataChange(FunctionDeviceSupportData functionSupport) {
-//                            String message = "FunctionDeviceSupportData:\n" + functionSupport.toString();
-//                            Logger.t(TAG).i(message);
-//                        }
-//                    }, new ISocialMsgDataListener() {
-//                        @Override
-//                        public void onSocialMsgSupportDataChange(FunctionSocailMsgData socailMsgData) {
-//
-//                        }
-//
-//                        @Override
-//                        public void onSocialMsgSupportDataChange2(FunctionSocailMsgData socailMsgData) {
-//
-//                        }
-//                    }, new ICustomSettingDataListener() {
-//                        @Override
-//                        public void OnSettingDataChange(CustomSettingData customSettingData) {
-//                            String message = "CustomSettingData:\n" + customSettingData.toString();
-//                            Logger.t(TAG).i(message);
-//                        }
-//                    }, "0000", true);
+                    VPOperateManager.getInstance().confirmDevicePwd(new IBleWriteResponse() {
+                        @Override
+                        public void onResponse(int code) {
+
+                        }
+                    }, new IPwdDataListener() {
+                        @Override
+                        public void onPwdDataChange(PwdData pwdData) {
+                            String message = "PwdData:\n" + pwdData.toString();
+                            Logger.t(TAG).i(message);
+                            int deviceNumber = pwdData.getDeviceNumber();
+                            String deviceVersion = pwdData.getDeviceVersion();
+                            String deviceTestVersion = pwdData.getDeviceTestVersion();
+                            Logger.t(TAG).e("设备号：" + deviceNumber + ",版本号：" + deviceVersion + ",\n测试版本号：" + deviceTestVersion);
+                        }
+                    }, new IDeviceFuctionDataListener() {
+                        @Override
+                        public void onFunctionSupportDataChange(FunctionDeviceSupportData functionSupport) {
+                            String message = "FunctionDeviceSupportData:\n" + functionSupport.toString();
+                            Logger.t(TAG).i(message);
+                        }
+
+                        @Override
+                        public void onDeviceFunctionPackage1Report(DeviceFunctionPackage1 deviceFunctionPackage1) {
+
+                        }
+
+                        @Override
+                        public void onDeviceFunctionPackage2Report(DeviceFunctionPackage2 deviceFunctionPackage2) {
+
+                        }
+
+                        @Override
+                        public void onDeviceFunctionPackage3Report(DeviceFunctionPackage3 deviceFunctionPackage3) {
+
+                        }
+
+                        @Override
+                        public void onDeviceFunctionPackage4Report(DeviceFunctionPackage4 deviceFunctionPackage4) {
+
+                        }
+
+                        @Override
+                        public void onDeviceFunctionPackage5Report(DeviceFunctionPackage5 deviceFunctionPackage5) {
+
+                        }
+                    }, new ISocialMsgDataListener() {
+                        @Override
+                        public void onSocialMsgSupportDataChange(FunctionSocailMsgData socailMsgData) {
+
+                        }
+
+                        @Override
+                        public void onSocialMsgSupportDataChange2(FunctionSocailMsgData socailMsgData) {
+
+                        }
+                    }, new ICustomSettingDataListener() {
+
+                        @Override
+                        public void OnSettingDataChange(CustomSettingData customSettingData) {
+                            String message = "CustomSettingData:\n" + customSettingData.toString();
+                            Logger.t(TAG).i(message);
+                        }
+                    }, "0000", true);
 
                 } else {
                     Logger.t(TAG).i("监听失败，重新连接");
@@ -544,19 +391,6 @@ public class MainActivity extends Activity implements SwipeRefreshLayout.OnRefre
             Logger.t(TAG).i("open=" + openOrClosed);
         }
     };
-
-
-    public static boolean isShowDevice(byte[] scanRecord) {
-        if (isBeyondVp(scanRecord)) {
-            if (isBrandDevice(scanRecord)) {
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    }
 
     /**
      * 扫描的回调
@@ -619,17 +453,6 @@ public class MainActivity extends Activity implements SwipeRefreshLayout.OnRefre
                 }
             }, 3000);
         }
-    }
-
-    private void initBLE() {
-        mBManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        if (null != mBManager) {
-            mBAdapter = mBManager.getAdapter();
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            mBScanner = mBAdapter.getBluetoothLeScanner();
-        }
-        checkBLE();
     }
 
     /**

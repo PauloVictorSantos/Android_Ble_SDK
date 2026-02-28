@@ -11,12 +11,7 @@ project.ext {
 android {
     compileSdkVersion 34
     signingConfigs {
-        release {
-            keyAlias 'zhongxin'
-            keyPassword 'veepooandroid'
-            storeFile file('F:\\ExportProject\\zhongxin003.keystore')
-            storePassword 'veepooandroid'
-        }
+
     }
     defaultConfig {
         applicationId "com.timaimee.vpdemo"//com.timaimee.vpdemo //com.ecg.kg
@@ -34,7 +29,7 @@ android {
             buildConfigField("boolean", "IS_DEBUG", "false")
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            // signingConfig signingConfigs.release
         }
         debug {
             buildConfigField("boolean", "IS_DEBUG", "true")
