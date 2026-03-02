@@ -77,7 +77,9 @@ import com.veepoo.protocol.listener.data.IFatigueDataListener;
 import com.veepoo.protocol.listener.data.IFindDeviceDatalistener;
 import com.veepoo.protocol.listener.data.IFindDevicelistener;
 import com.veepoo.protocol.listener.data.IFindPhonelistener;
+import com.veepoo.protocol.listener.data.IFunSwitchListener;
 import com.veepoo.protocol.listener.data.IG08ProjectPPGLightCallBack;
+import com.veepoo.protocol.listener.data.IGsrDetectListener;
 import com.veepoo.protocol.listener.data.IHRVOriginDataListener;
 import com.veepoo.protocol.listener.data.IHeartDataListener;
 import com.veepoo.protocol.listener.data.IHeartWaringDataListener;
@@ -141,8 +143,10 @@ import com.veepoo.protocol.model.datas.EcgDetectResult;
 import com.veepoo.protocol.model.datas.EcgDiagnosis;
 import com.veepoo.protocol.model.datas.FatigueData;
 import com.veepoo.protocol.model.datas.FindDeviceData;
+import com.veepoo.protocol.model.datas.FunSwitchFlags;
 import com.veepoo.protocol.model.datas.FunctionDeviceSupportData;
 import com.veepoo.protocol.model.datas.FunctionSocailMsgData;
+import com.veepoo.protocol.model.datas.GsrDetectResult;
 import com.veepoo.protocol.model.datas.HRVOriginData;
 import com.veepoo.protocol.model.datas.HalfHourSportData;
 import com.veepoo.protocol.model.datas.HeartData;
@@ -204,6 +208,7 @@ import com.veepoo.protocol.model.enums.ETimeMode;
 import com.veepoo.protocol.model.enums.EUricAcidUnit;
 import com.veepoo.protocol.model.enums.EWeatherType;
 import com.veepoo.protocol.model.enums.EWomenStatus;
+import com.veepoo.protocol.model.enums.GsrDetectAck;
 import com.veepoo.protocol.model.enums.MagneticTherapyType;
 import com.veepoo.protocol.model.settings.Alarm2Setting;
 import com.veepoo.protocol.model.settings.AlarmSetting;
@@ -3131,6 +3136,79 @@ public class OperaterActivity extends Activity implements AdapterView.OnItemClic
             startActivity(new Intent(this, JH58PPGOptTestActivity.class));
         }  else if (oprater.equals(MINI_CHECKUP)) {
             startActivity(new Intent(this, MiniCheckupActivity.class));
+        }else if (oprater.equals(GSR_START)) {
+            VPOperateManager.getInstance().startDetectGsr(new IBleWriteResponse() {
+                @Override
+                public void onResponse(int code) {
+
+                }
+            }, new IGsrDetectListener() {
+                @Override
+                public void onGsrDetectProgress(int progress) {
+                    Logger.t(TAG).e("onGsrDetectProgress --》 " + progress);
+                }
+
+                @Override
+                public void onGsrDetectSuccess(@NonNull GsrDetectResult detectResult) {
+                    Logger.t(TAG).e("onGsrDetectSuccess --》 " + detectResult.toString());
+                }
+
+                @Override
+                public void onGsrDetectFailed(@NonNull GsrDetectAck detectAck) {
+                    Logger.t(TAG).e("onGsrDetectFailed --》 " + detectAck.getDescription());
+                }
+
+                @Override
+                public void onGsrDetectStop() {
+                    Logger.t(TAG).e("onGsrDetectStop --》 -- ");
+                }
+            });
+        } else if (oprater.equals(GSR_STOP)) {
+            VPOperateManager.getInstance().stopDetectGsr(new IBleWriteResponse() {
+                @Override
+                public void onResponse(int code) {
+
+                }
+            });
+        } else if(oprater.equals(ZT163_DEVICE_ALWAYS_OFF_SCREEN)) {
+            startActivity(new Intent(this, ZT163DeviceAlwaysOffScreenActivity.class));
+        } else if (oprater.equals(GNSS_SOS_SAFETY_PROTECTION)) {
+            startActivity(new Intent(this, GNSSOptActivity.class));
+        } else if (oprater.equals(FUN_SWITCH_READ)) {
+            VPOperateManager.getInstance().readFunSwitchState(new IBleWriteResponse() {
+                @Override
+                public void onResponse(int code) {
+
+                }
+            }, new IFunSwitchListener() {
+                @Override
+                public void onFunSwitchStatusChanged(int con, Map<Integer, EFunctionStatus> states) {
+                    Toast.makeText(mContext, "读取健康辅助功能完成，具体内容看log", Toast.LENGTH_LONG).show();
+                    //    con    命令类型  1设置  2读取  3设备主动上报
+                    //    states 功能状态 其中Int代表功能类型，详见FunSwitchFlags，EFunctionStatus代表该功能状态，有相关的FunSwitchFlags返回则代表支持，没有代表不支持
+                    Logger.t(TAG).e("onFunSwitchStatusChanged --》 con=" + con + ",states=" + states.toString());
+                }
+            });
+        } else if (oprater.equals(FUN_SWITCH_SETTING)) {
+            VPOperateManager.getInstance().setFunSwitchState(new IBleWriteResponse() {
+                @Override
+                public void onResponse(int code) {
+
+                }
+            }, new IFunSwitchListener() {
+                @Override
+                public void onFunSwitchStatusChanged(int con, Map<Integer, EFunctionStatus> states) {
+
+                }
+            }, FunSwitchFlags.BLOOD_OXYGEN, SUPPORT_OPEN);
+        } else if (oprater.equals(FUN_4G)) {
+            startActivity(new Intent(this, Device4gOptActivity.class));
+        } else if (oprater.equals(AUTO_MEASURE)) {
+            if (VpSpGetUtil.getVpSpVariInstance(mContext).isSupportAutoMeasure()) {
+                startActivity(new Intent(this, AutoMeasureActivity.class));
+            } else {
+                showToast("当前设备不支持自动测量设置");
+            }
         }
     }
 
